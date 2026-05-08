@@ -43,6 +43,7 @@ export default function Settings({ systemStatus }) {
   })
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     api.getConfig().then(cfg => {
@@ -59,10 +60,13 @@ export default function Settings({ systemStatus }) {
 
   const handleSave = async () => {
     setLoading(true)
+    setError('')
     try {
       await api.updateConfig(form)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
+    } catch (e) {
+      setError(`Save failed: ${e.message}`)
     } finally {
       setLoading(false)
     }
@@ -138,6 +142,11 @@ export default function Settings({ systemStatus }) {
         </div>
       </div>
 
+      {error && (
+        <div style={{ color: '#f87171', fontSize: 12, marginBottom: 12, padding: '8px 12px', background: '#450a0a', borderRadius: 6 }}>
+          {error}
+        </div>
+      )}
       <button style={s.saveBtn(saved)} onClick={handleSave} disabled={loading}>
         {saved ? <><CheckCircle size={14} /> Saved</> : <><Save size={14} /> Save Settings</>}
       </button>
