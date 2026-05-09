@@ -9,6 +9,7 @@ DB_PATH.mkdir(exist_ok=True)
 
 SCANS_FILE = DB_PATH / "scans.json"
 SNAPSHOTS_FILE = DB_PATH / "snapshots.json"
+SITEMAPS_FILE = DB_PATH / "sitemaps.json"
 
 
 def _load(path: Path) -> dict:
@@ -62,3 +63,58 @@ def save_snapshot(competitor_id: str, url: str, content_hash: str, text_content:
 def get_snapshot(competitor_id: str, url: str) -> Optional[dict]:
     snapshots = _load(SNAPSHOTS_FILE)
     return snapshots.get(f"{competitor_id}:{url}")
+
+
+# ── Sitemap storage ───────────────────────────────────────────────────────────
+
+def get_sitemap(competitor_id: str) -> Optional[dict]:
+    data = _load(SITEMAPS_FILE)
+    return data.get(competitor_id)
+
+
+def save_sitemap(competitor_id: str, sitemap_entry: dict) -> None:
+    data = _load(SITEMAPS_FILE)
+    data[competitor_id] = sitemap_entry
+    _save(SITEMAPS_FILE, data)
+
+
+def get_sitemap_pages_list(competitor_id: str) -> Optional[dict]:
+    data = _load(SITEMAPS_FILE)
+    entry = data.get(competitor_id)
+    if not entry:
+        return None
+    pages = sorted(
+        entry["pages"].values(),
+        key=lambda p: (-(p.get("importance_score") or 0), p.get("first_seen") or ""),
+        reverse=False,
+    )
+    return {
+        "competitor_id": competitor_id,
+        "last_crawled": entry.get("last_crawled"),
+        "pages_count": entry.get("pages_count", len(pages)),
+        "pages": pages,
+    }
+
+
+def merge_sitemap_pages(old_pages: dict, new_pages: dict, crawl_time: str) -> dict:
+    merged = {}
+
+    for url, page in new_pages.items():
+        old = old_pages.get(url, {})
+        merged[url] = {
+            **page,
+            "first_seen": old.get("first_seen") or crawl_time,
+            "last_seen": crawl_time,
+            "status": "active",
+            "is_new": url not in old_pages,
+            # Preserve existing AI fields — never overwrite once set
+            "ai_description": old.get("ai_description") or page.get("ai_description"),
+            "category": old.get("category") or page.get("category"),
+            "importance_score": old.get("importance_score") if old.get("importance_score") is not None else page.get("importance_score"),
+        }
+
+    for url, page in old_pages.items():
+        if url not in new_pages:
+            merged[url] = {**page, "status": "not found", "is_new": False}
+
+    return merged

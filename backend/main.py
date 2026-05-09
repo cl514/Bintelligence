@@ -13,8 +13,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from config_manager import load_config, save_config
-from database import get_scan_results, get_latest_scan, get_all_latest_scans
+from database import get_scan_results, get_latest_scan, get_all_latest_scans, get_sitemap_pages_list
 from research_runner import run_all_competitors, run_competitor_research
+from sitemap_crawler import run_sitemap_crawl
 
 app = FastAPI(title="Competitive Intelligence API")
 
@@ -198,6 +199,42 @@ async def run_one(competitor_id: str, background_tasks: BackgroundTasks):
 
     background_tasks.add_task(_run)
     return {"job_id": job_id, "status": "started"}
+
+
+# ── Sitemap ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/sitemap/crawl/{competitor_id}")
+async def crawl_sitemap(competitor_id: str, background_tasks: BackgroundTasks):
+    config = load_config()
+    competitor = next((c for c in config.get("competitors", []) if c["id"] == competitor_id), None)
+    if not competitor:
+        raise HTTPException(404, "Competitor not found")
+
+    job_id = str(uuid.uuid4())[:8]
+    running_jobs[job_id] = "running"
+
+    async def _run():
+        try:
+            await run_sitemap_crawl(
+                competitor_id,
+                competitor["website"],
+                config.get("openai_api_key", ""),
+                config.get("slack_webhook_url", ""),
+            )
+            running_jobs[job_id] = "done"
+        except Exception as e:
+            running_jobs[job_id] = f"error: {e}"
+
+    background_tasks.add_task(_run)
+    return {"job_id": job_id, "status": "started"}
+
+
+@app.get("/api/sitemap/{competitor_id}")
+def get_sitemap(competitor_id: str):
+    result = get_sitemap_pages_list(competitor_id)
+    if not result:
+        return {"competitor_id": competitor_id, "last_crawled": None, "pages_count": 0, "pages": []}
+    return result
 
 
 @app.get("/api/jobs/{job_id}")

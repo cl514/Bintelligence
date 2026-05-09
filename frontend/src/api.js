@@ -27,4 +27,7 @@ export const api = {
   getConfig: () => req('GET', '/config'),
   updateConfig: (data) => req('PUT', '/config', data),
   getStatus: () => req('GET', '/status'),
+
+  crawlSitemap: (id) => req('POST', `/sitemap/crawl/${id}`),
+  getSitemap: (id) => req('GET', `/sitemap/${id}`),
 }
