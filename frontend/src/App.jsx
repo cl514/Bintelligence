@@ -146,6 +146,10 @@ export default function App() {
           />
         )}
 
+        {activeView === 'ad-intelligence' && (
+          <AdIntelligence competitors={competitors} />
+        )}
+
         {activeCompetitor && (
           <CompetitorDetail
             competitor={activeCompetitor}
