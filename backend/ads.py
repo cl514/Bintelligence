@@ -8,10 +8,11 @@ from uuid import uuid4
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import PlainTextResponse
 from openai import OpenAI
 from pydantic import BaseModel
 
-from config_manager import load_config
+from config_manager import get_setting, load_config
 
 router = APIRouter(prefix="/api/ads", tags=["ads"])
 
@@ -156,10 +157,15 @@ async def create_ad(
     return entry
 
 
+@router.options("/analyze")
+async def analyze_ad_options():
+    return PlainTextResponse("OK")
+
+
 @router.post("/analyze")
 async def analyze_ad(payload: AdAnalyzeRequest):
     text = await _fetch_landing_page(payload.landing_page_url)
-    api_key = load_config().get("openai_api_key", "")
+    api_key = get_setting("openai_api_key", "")
     analysis = await _analyze_with_ai(payload.ad_copy, text, api_key)
     return {"analysis": analysis, "landing_page_text": text}
 
