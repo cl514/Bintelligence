@@ -1,4 +1,4 @@
-import { Building2, Settings, LayoutDashboard, Plus } from 'lucide-react'
+import { Building2, Settings, LayoutDashboard, Plus, Circle, Megaphone } from 'lucide-react'
 
 const styles = {
   sidebar: {
@@ -89,6 +89,10 @@ export default function Sidebar({ competitors, results, priorityLabels = [], act
         <button style={styles.navItem(activeView === 'dashboard')} onClick={() => onNavigate('dashboard')}>
           <LayoutDashboard size={14} />
           Dashboard
+        </button>
+        <button style={styles.navItem(activeView === 'ad-intelligence')} onClick={() => onNavigate('ad-intelligence')}>
+          <Megaphone size={14} />
+          Ad Intelligence
         </button>
         <button style={styles.navItem(activeView === 'settings')} onClick={() => onNavigate('settings')}>
           <Settings size={14} />

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
+from ads import router as ads_router
 from config_manager import load_config, save_config
 from database import get_scan_results, get_latest_scan, get_all_latest_scans, get_sitemap_pages_list
 from research_runner import run_all_competitors, run_competitor_research
@@ -26,6 +27,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(ads_router)
+
+UPLOADS_DIR = Path(__file__).parent.parent / "data" / "ad_screenshots"
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads/ads", StaticFiles(directory=str(UPLOADS_DIR)), name="ad_screenshots")
 
 scheduler = AsyncIOScheduler()
 running_jobs: dict[str, str] = {}  # job_id -> status

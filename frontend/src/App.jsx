@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard'
 import CompetitorDetail from './components/CompetitorDetail'
 import Settings from './components/Settings'
 import CompetitorModal from './components/CompetitorModal'
+import AdIntelligence from './components/AdIntelligence'
 import { api } from './api'
 import { usePolling } from './hooks/usePolling'
 

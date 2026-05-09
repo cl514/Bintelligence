@@ -31,6 +31,14 @@ export const api = {
   crawlSitemap: (id) => req('POST', `/sitemap/crawl/${id}`),
   getSitemap: (id) => req('GET', `/sitemap/${id}`),
 
+  getAds: () => req('GET', '/ads'),
+  analyzeAd: (data) => req('POST', '/ads/analyze', data),
+  createAd: (formData) => fetch(`${BASE}/ads`, { method: 'POST', body: formData }).then(async (res) => {
+    if (!res.ok) throw new Error(`POST /ads → ${res.status}`)
+    return res.json()
+  }),
+  deleteAd: (id) => req('DELETE', `/ads/${id}`),
+
   getPriorityLabels: () => req('GET', '/labels/priority'),
   createPriorityLabel: (data) => req('POST', '/labels/priority', data),
   updatePriorityLabel: (id, data) => req('PUT', `/labels/priority/${id}`, data),
