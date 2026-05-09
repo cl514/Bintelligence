@@ -6,6 +6,7 @@ async def summarize_changes(
     website_changes: list[dict],
     news_articles: list[dict],
     api_key: str,
+    relevant_topics: str = "",
 ) -> str:
     if not api_key:
         return "No OpenAI API key configured. Add one in Settings to enable AI summaries."
@@ -31,10 +32,14 @@ async def summarize_changes(
     if not changes_text and not news_text:
         return "No significant changes or news found in this scan."
 
+    topics_instruction = ""
+    if relevant_topics:
+        topics_instruction = f"\nFocus especially on topics related to: {relevant_topics}\n"
+
     prompt = f"""You are a competitive intelligence analyst for an accounting firm.
 
 Analyze this intelligence report for {competitor_name} and provide a concise, business-focused summary.
-
+{topics_instruction}
 {changes_text}
 {news_text}
 
@@ -43,7 +48,7 @@ Write a 3-5 sentence summary covering:
 2. Why it matters competitively
 3. Any recommended actions or watch items
 
-Be direct and business-focused. Use plain language."""
+Be direct and business-focused. Use plain language. Write your response in German (Deutsch)."""
 
     try:
         client = OpenAI(api_key=api_key)
@@ -76,7 +81,7 @@ Write a concise executive digest (max 200 words) that:
 2. Groups related themes across competitors
 3. Lists top 2-3 action items
 
-Format for Slack: use *bold* for key points, no markdown headers."""
+Format for Slack: use *bold* for key points, no markdown headers. Write your response in German (Deutsch)."""
 
     try:
         client = OpenAI(api_key=api_key)

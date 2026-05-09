@@ -3,6 +3,19 @@ import { RefreshCw, Play, ExternalLink } from 'lucide-react'
 
 const CATEGORIES = ['All', 'Landing Page', 'Product/Solution', 'Pricing', 'Blog/Article', 'Legal', 'Career', 'About', 'Other']
 
+// Display mapping: English DB values → German UI labels
+const CATEGORY_DE = {
+  'All': 'Alle',
+  'Landing Page': 'Zielseite',
+  'Product/Solution': 'Produkt/Lösung',
+  'Pricing': 'Preise',
+  'Blog/Article': 'Blog/Artikel',
+  'Legal': 'Rechtliches',
+  'Career': 'Karriere',
+  'About': 'Über uns',
+  'Other': 'Sonstiges',
+}
+
 const CATEGORY_STYLE = {
   'Landing Page':       { bg: '#7c2d12', color: '#fb923c' },
   'Product/Solution':   { bg: '#1e3a5f', color: '#60a5fa' },
@@ -87,7 +100,7 @@ function CategoryBadge({ category }) {
       fontSize: 11, fontWeight: 500, padding: '2px 7px', borderRadius: 10,
       background: style.bg, color: style.color, whiteSpace: 'nowrap',
     }}>
-      {category}
+      {CATEGORY_DE[category] || category}
     </span>
   )
 }
@@ -138,11 +151,11 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
 
   const cols = [
     { key: 'url', label: 'URL' },
-    { key: 'title', label: 'Title' },
-    { key: 'category', label: 'Category' },
+    { key: 'title', label: 'Titel' },
+    { key: 'category', label: 'Kategorie' },
     { key: 'importance_score', label: 'Score' },
-    { key: 'ai_description', label: 'AI Description' },
-    { key: 'first_seen', label: 'First Seen' },
+    { key: 'ai_description', label: 'KI-Beschreibung' },
+    { key: 'first_seen', label: 'Erstellt' },
     { key: 'status', label: 'Status' },
   ]
 
@@ -153,7 +166,7 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
       <div style={s.toolbar}>
         {sitemapData?.last_crawled && (
           <span style={s.meta}>
-            {sitemapData.pages_count} pages · last crawled {timeAgo(sitemapData.last_crawled)}
+            {sitemapData.pages_count} Seiten · zuletzt gecrawlt {timeAgo(sitemapData.last_crawled)}
           </span>
         )}
         <select
@@ -161,12 +174,12 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
           value={filterCategory}
           onChange={e => setFilterCategory(e.target.value)}
         >
-          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_DE[c] || c}</option>)}
         </select>
         <button style={s.scanBtn(scanning)} onClick={onScan} disabled={scanning}>
           {scanning
             ? <><RefreshCw size={12} style={s.spin} /> Crawling…</>
-            : <><Play size={12} /> Scan Site Map</>
+            : <><Play size={12} /> Sitemap scannen</>
           }
         </button>
       </div>
@@ -174,14 +187,14 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
       {loading && !sitemapData && (
         <div style={s.center}>
           <RefreshCw size={24} style={{ ...s.spin, display: 'block', margin: '0 auto 12px' }} />
-          Crawling site… this may take a minute.
+          Website wird gecrawlt… das kann einen Moment dauern.
         </div>
       )}
 
       {!loading && pages.length === 0 && (
         <div style={s.center}>
-          No site map scanned yet.<br />
-          <span style={{ color: '#334155' }}>Click "Scan Site Map" to crawl this competitor's website.</span>
+          Noch keine Sitemap gescannt.<br />
+          <span style={{ color: '#334155' }}>Klicke auf "Sitemap scannen" um die Website zu crawlen.</span>
         </div>
       )}
 
@@ -206,7 +219,7 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
                 return (
                   <tr key={page.url} style={highlight ? s.trHighlight : s.trBase}>
                     <td style={{ ...s.td, maxWidth: 260 }}>
-                      {page.is_new && <span style={s.badgeNew}>NEW</span>}
+                      {page.is_new && <span style={s.badgeNew}>NEU</span>}
                       {page.category === 'Landing Page' && <span style={{ marginRight: 4 }}>🎯</span>}
                       <a href={page.url} target="_blank" rel="noreferrer" style={s.urlLink}>
                         {page.url}
@@ -231,7 +244,7 @@ export default function SiteMapTab({ competitorId, sitemapData, loading, onScan,
                       {timeAgo(page.first_seen)}
                     </td>
                     <td style={s.td}>
-                      <span style={s.badgeStatus(page.status)}>{page.status}</span>
+                      <span style={s.badgeStatus(page.status)}>{page.status === 'active' ? 'Aktiv' : 'Nicht gefunden'}</span>
                     </td>
                   </tr>
                 )

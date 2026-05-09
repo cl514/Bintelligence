@@ -10,7 +10,6 @@ from scraper import fetch_page, extract_links, extract_text
 from database import get_sitemap, save_sitemap, merge_sitemap_pages
 from slack_notifier import post_new_pages_notification
 
-MAX_PAGES = 200
 BATCH_SIZE = 10  # concurrent fetches per round
 
 
@@ -34,7 +33,7 @@ async def analyse_page(text: str, url: str, title: Optional[str], api_key: str) 
     prompt = f"""Analyse this web page and respond with ONLY a JSON object with these fields:
 - "category": one of ["Landing Page", "Product/Solution", "Pricing", "Blog/Article", "Legal", "Career", "About", "Other"]
 - "importance_score": integer 1-10. High score for: pricing pages, AI/automation/partnership content, product landing pages, strategic announcements. Low score for: legal/cookie/impressum pages, deep archive pages, generic boilerplate.
-- "description": 2-3 sentence summary of what this page is about.
+- "description": 2-3 sentence summary of what this page is about. Write the description in German (Deutsch).
 
 URL: {url}
 Title: {title or ''}
@@ -82,13 +81,13 @@ async def _process_url(url: str, base_url: str, api_key: str, old_pages: dict) -
     }
 
 
-async def crawl_site(base_url: str, api_key: str, old_pages: dict) -> dict:
+async def crawl_site(base_url: str, api_key: str, old_pages: dict, max_pages: int = 200) -> dict:
     norm_base = _normalize_url(base_url)
     visited: set[str] = {norm_base}
     queue: list[str] = [norm_base]
     results: dict = {}
 
-    while queue and len(results) < MAX_PAGES:
+    while queue and len(results) < max_pages:
         batch = queue[:BATCH_SIZE]
         queue = queue[BATCH_SIZE:]
 
@@ -100,7 +99,7 @@ async def crawl_site(base_url: str, api_key: str, old_pages: dict) -> dict:
                 continue
             links = page.pop("_links", [])
             results[url] = page
-            if len(results) >= MAX_PAGES:
+            if len(results) >= max_pages:
                 break
             for link in links:
                 norm = _normalize_url(link)
@@ -116,13 +115,14 @@ async def run_sitemap_crawl(
     website: str,
     api_key: str,
     slack_webhook_url: str,
+    max_pages: int = 200,
 ) -> dict:
     crawl_time = datetime.utcnow().isoformat()
 
     existing = get_sitemap(competitor_id)
     old_pages = existing["pages"] if existing else {}
 
-    new_pages = await crawl_site(website, api_key, old_pages)
+    new_pages = await crawl_site(website, api_key, old_pages, max_pages=max_pages)
 
     new_urls = set(new_pages) - set(old_pages)
     merged = merge_sitemap_pages(old_pages, new_pages, crawl_time)

@@ -12,6 +12,8 @@ export default function App() {
   const [results, setResults] = useState({})        // { competitorId: latestScan }
   const [historyMap, setHistoryMap] = useState({})   // { competitorId: [scans] }
   const [systemStatus, setSystemStatus] = useState(null)
+  const [priorityLabels, setPriorityLabels] = useState([])
+  const [categoryLabels, setCategoryLabels] = useState([])
   const [activeView, setActiveView] = useState('dashboard')
   const [modal, setModal] = useState(null)           // null | { mode: 'add' | 'edit', competitor }
   const [runningJobs, setRunningJobs] = useState({}) // { jobId: competitorId | 'all' }
@@ -19,16 +21,20 @@ export default function App() {
 
   const loadData = useCallback(async () => {
     try {
-      const [comps, allResults, status] = await Promise.all([
+      const [comps, allResults, status, pLabels, cLabels] = await Promise.all([
         api.getCompetitors(),
         api.getResults(),
         api.getStatus(),
+        api.getPriorityLabels(),
+        api.getCategoryLabels(),
       ])
       setCompetitors(comps)
       const byId = {}
       allResults.forEach(r => { byId[r.competitor_id] = r })
       setResults(byId)
       setSystemStatus(status)
+      setPriorityLabels(pLabels)
+      setCategoryLabels(cLabels)
     } catch (e) {
       console.error('Load failed', e)
     }
@@ -109,6 +115,7 @@ export default function App() {
       <Sidebar
         competitors={competitors}
         results={results}
+        priorityLabels={priorityLabels}
         activeView={activeView}
         onNavigate={handleNavigate}
         onAddCompetitor={() => setModal({ mode: 'add', competitor: null })}
@@ -124,11 +131,18 @@ export default function App() {
             onRunOne={handleRunOne}
             running={running}
             onSelectCompetitor={(id) => handleNavigate(`competitor:${id}`)}
+            priorityLabels={priorityLabels}
+            categoryLabels={categoryLabels}
           />
         )}
 
         {activeView === 'settings' && (
-          <Settings systemStatus={systemStatus} />
+          <Settings
+            systemStatus={systemStatus}
+            priorityLabels={priorityLabels}
+            categoryLabels={categoryLabels}
+            onLabelsChanged={loadData}
+          />
         )}
 
         {activeCompetitor && (
@@ -140,6 +154,9 @@ export default function App() {
             onEdit={(comp) => setModal({ mode: 'edit', competitor: comp })}
             onDelete={handleDeleteCompetitor}
             running={isRunningForComp(activeCompetitorId)}
+            priorityLabels={priorityLabels}
+            categoryLabels={categoryLabels}
+            onSettingsSaved={loadData}
           />
         )}
       </main>

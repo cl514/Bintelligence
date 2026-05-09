@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Play, RefreshCw, ExternalLink, Edit2, Trash2, Globe, Newspaper, AlertTriangle, ChevronDown, ChevronRight, Map } from 'lucide-react'
 import { api } from '../api'
 import SiteMapTab from './SiteMapTab'
+import CompetitorSettingsTab from './CompetitorSettingsTab'
 
 const s = {
   page: { padding: '28px 32px', overflowY: 'auto', flex: 1 },
@@ -65,7 +66,7 @@ function timeAgo(ts) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function CompetitorDetail({ competitor, results, historyResults, onRun, onEdit, onDelete, running }) {
+export default function CompetitorDetail({ competitor, results, historyResults, onRun, onEdit, onDelete, running, priorityLabels, categoryLabels, onSettingsSaved }) {
   const [showHistory, setShowHistory] = useState(false)
   const [activeTab, setActiveTab] = useState('intelligence')
   const [sitemapData, setSitemapData] = useState(null)
@@ -174,7 +175,7 @@ export default function CompetitorDetail({ competitor, results, historyResults, 
 
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: '1px solid #1e2a3a', marginBottom: 24 }}>
-        {['intelligence', 'sitemap'].map(tab => (
+        {['intelligence', 'sitemap', 'settings'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -185,7 +186,7 @@ export default function CompetitorDetail({ competitor, results, historyResults, 
               fontSize: 13, fontWeight: activeTab === tab ? 600 : 400, marginBottom: -1,
             }}
           >
-            {tab === 'intelligence' ? 'Intelligence' : 'Site Map'}
+            {tab === 'intelligence' ? 'Intelligence' : tab === 'sitemap' ? 'Site Map' : 'Einstellungen'}
             {tab === 'sitemap' && sitemapData?.pages_count > 0 && (
               <span style={{ marginLeft: 6, fontSize: 11, color: '#475569' }}>
                 {sitemapData.pages_count}
@@ -291,6 +292,16 @@ export default function CompetitorDetail({ competitor, results, historyResults, 
           loading={sitemapLoading}
           onScan={handleScanSitemap}
           scanning={sitemapLoading}
+        />
+      )}
+
+      {/* Settings tab */}
+      {activeTab === 'settings' && (
+        <CompetitorSettingsTab
+          competitor={competitor}
+          priorityLabels={priorityLabels || []}
+          categoryLabels={categoryLabels || []}
+          onSettingsSaved={onSettingsSaved}
         />
       )}
     </div>

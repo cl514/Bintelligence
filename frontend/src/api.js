@@ -30,4 +30,14 @@ export const api = {
 
   crawlSitemap: (id) => req('POST', `/sitemap/crawl/${id}`),
   getSitemap: (id) => req('GET', `/sitemap/${id}`),
+
+  getPriorityLabels: () => req('GET', '/labels/priority'),
+  createPriorityLabel: (data) => req('POST', '/labels/priority', data),
+  updatePriorityLabel: (id, data) => req('PUT', `/labels/priority/${id}`, data),
+  deletePriorityLabel: (id) => req('DELETE', `/labels/priority/${id}`),
+
+  getCategoryLabels: () => req('GET', '/labels/category'),
+  createCategoryLabel: (data) => req('POST', '/labels/category', data),
+  updateCategoryLabel: (id, data) => req('PUT', `/labels/category/${id}`, data),
+  deleteCategoryLabel: (id) => req('DELETE', `/labels/category/${id}`),
 }

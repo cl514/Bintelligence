@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Play, RefreshCw, AlertCircle, CheckCircle, Clock, Globe, Newspaper } from 'lucide-react'
 
 const s = {
@@ -11,13 +12,21 @@ const s = {
     border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500,
     opacity: loading ? 0.7 : 1, transition: 'background 0.15s',
   }),
-  stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 },
+  stats: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 },
   statCard: {
     background: '#131b27', border: '1px solid #1e2a3a', borderRadius: 10, padding: '16px 20px',
   },
   statLabel: { fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' },
   statValue: { fontSize: 28, fontWeight: 700, color: '#e2e8f0', marginTop: 6 },
   statSub: { fontSize: 12, color: '#475569', marginTop: 2 },
+  filterBar: {
+    display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap',
+  },
+  filterSelect: {
+    padding: '6px 12px', background: '#0d1117', border: '1px solid #1e2a3a',
+    borderRadius: 7, color: '#e2e8f0', fontSize: 12, outline: 'none',
+  },
+  filterLabel: { fontSize: 12, color: '#64748b' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 },
   card: {
     background: '#131b27', border: '1px solid #1e2a3a', borderRadius: 10,
@@ -50,11 +59,43 @@ function timeAgo(ts) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export default function Dashboard({ competitors, results, systemStatus, onRunAll, onRunOne, running, onSelectCompetitor }) {
-  const active = competitors.filter(c => c.active !== false)
+function PriorityBadge({ labelId, priorityLabels }) {
+  const label = priorityLabels.find(l => l.id === labelId)
+  if (!label) return null
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 10,
+      background: label.color + '33',
+      color: label.color,
+      border: `1px solid ${label.color}55`,
+      marginLeft: 6, flexShrink: 0,
+    }}>
+      {label.name}
+    </span>
+  )
+}
+
+export default function Dashboard({ competitors, results, systemStatus, onRunAll, onRunOne, running, onSelectCompetitor, priorityLabels = [], categoryLabels = [] }) {
+  const [filterPriorityId, setFilterPriorityId] = useState('')
+  const [filterCategoryId, setFilterCategoryId] = useState('')
+
   const successCount = Object.values(results).filter(r => r.status === 'success').length
   const changesTotal = Object.values(results).reduce((n, r) => n + (r.changes_detected || 0), 0)
   const articlesTotal = Object.values(results).reduce((n, r) => n + (r.news_articles?.length || 0), 0)
+
+  // Sort: active first, then inactive; apply filters
+  const sorted = [...competitors].sort((a, b) => {
+    const aActive = a.active !== false
+    const bActive = b.active !== false
+    if (aActive === bActive) return 0
+    return aActive ? -1 : 1
+  })
+
+  const filtered = sorted
+    .filter(c => !filterPriorityId || c.priority_label_id === filterPriorityId)
+    .filter(c => !filterCategoryId || (c.category_label_ids || []).includes(filterCategoryId))
+
+  const activeCount = competitors.filter(c => c.active !== false).length
 
   return (
     <div style={s.page}>
@@ -80,7 +121,7 @@ export default function Dashboard({ competitors, results, systemStatus, onRunAll
       <div style={s.stats}>
         <div style={s.statCard}>
           <div style={s.statLabel}>Competitors</div>
-          <div style={s.statValue}>{active.length}</div>
+          <div style={s.statValue}>{activeCount}</div>
           <div style={s.statSub}>being monitored</div>
         </div>
         <div style={s.statCard}>
@@ -100,27 +141,71 @@ export default function Dashboard({ competitors, results, systemStatus, onRunAll
         </div>
       </div>
 
-      {active.length === 0 ? (
+      {/* Filter bar */}
+      {(priorityLabels.length > 0 || categoryLabels.length > 0) && (
+        <div style={s.filterBar}>
+          <span style={s.filterLabel}>Filter:</span>
+          {priorityLabels.length > 0 && (
+            <select style={s.filterSelect} value={filterPriorityId} onChange={e => setFilterPriorityId(e.target.value)}>
+              <option value="">Alle Prioritäten</option>
+              {priorityLabels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          )}
+          {categoryLabels.length > 0 && (
+            <select style={s.filterSelect} value={filterCategoryId} onChange={e => setFilterCategoryId(e.target.value)}>
+              <option value="">Alle Kategorien</option>
+              {categoryLabels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          )}
+          {(filterPriorityId || filterCategoryId) && (
+            <button
+              onClick={() => { setFilterPriorityId(''); setFilterCategoryId('') }}
+              style={{ fontSize: 11, color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              ✕ Reset
+            </button>
+          )}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
         <div style={s.empty}>
           <div style={s.emptyIcon}><Globe size={48} /></div>
-          <div style={{ fontSize: 15 }}>No competitors added yet</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Use the sidebar to add competitors to monitor</div>
+          <div style={{ fontSize: 15 }}>
+            {competitors.length === 0 ? 'No competitors added yet' : 'No competitors match the current filter'}
+          </div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>
+            {competitors.length === 0 ? 'Use the sidebar to add competitors to monitor' : 'Try clearing the filter'}
+          </div>
         </div>
       ) : (
         <div style={s.grid}>
-          {active.map(comp => {
+          {filtered.map(comp => {
             const result = results[comp.id]
+            const inactive = comp.active === false
             return (
               <div
                 key={comp.id}
-                style={s.card}
+                style={{
+                  ...s.card,
+                  opacity: inactive ? 0.45 : 1,
+                  filter: inactive ? 'grayscale(0.5)' : 'none',
+                }}
                 onClick={() => onSelectCompetitor(comp.id)}
                 onMouseEnter={e => e.currentTarget.style.borderColor = '#334155'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2a3a'}
               >
                 <div style={s.cardHeader}>
-                  <div>
-                    <div style={s.cardName}>{comp.name}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                      <span style={s.cardName}>{comp.name}</span>
+                      {comp.priority_label_id && (
+                        <PriorityBadge labelId={comp.priority_label_id} priorityLabels={priorityLabels} />
+                      )}
+                      {inactive && (
+                        <span style={{ fontSize: 10, color: '#475569', marginLeft: 4 }}>(inaktiv)</span>
+                      )}
+                    </div>
                     <div style={s.cardUrl}>{comp.website}</div>
                   </div>
                   <span style={s.badge(result?.status)}>

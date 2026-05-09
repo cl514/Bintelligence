@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Save, CheckCircle } from 'lucide-react'
+import { Save, CheckCircle, Plus, Trash2 } from 'lucide-react'
 import { api } from '../api'
 
+const FREQ_OPTIONS = [
+  { value: 'daily', label: 'Täglich' },
+  { value: 'weekly', label: 'Wöchentlich' },
+  { value: 'monthly', label: 'Monatlich' },
+  { value: 'on-demand', label: 'Auf Anfrage' },
+  { value: 'never', label: 'Nie' },
+]
+
+const FREQ_OPTIONS_NO_NEVER = FREQ_OPTIONS.filter(o => o.value !== 'never')
+
 const s = {
-  page: { padding: '28px 32px', overflowY: 'auto', flex: 1, maxWidth: 640 },
+  page: { padding: '28px 32px', overflowY: 'auto', flex: 1, maxWidth: 760 },
   title: { fontSize: 22, fontWeight: 600, color: '#f1f5f9', marginBottom: 6 },
   subtitle: { fontSize: 13, color: '#64748b', marginBottom: 32 },
   section: { marginBottom: 32 },
@@ -23,7 +33,7 @@ const s = {
   saveBtn: (saved) => ({
     display: 'flex', alignItems: 'center', gap: 8,
     padding: '9px 18px', background: saved ? '#14532d' : '#2563eb',
-    border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500,
+    border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
   }),
   statusGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
   statusCard: {
@@ -31,9 +41,204 @@ const s = {
   },
   statusLabel: { fontSize: 11, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' },
   statusValue: { fontSize: 14, fontWeight: 500, color: '#e2e8f0', marginTop: 4 },
+  // Label editor styles
+  labelRow: {
+    background: '#0d1117', border: '1px solid #1e2a3a', borderRadius: 8,
+    padding: '14px 16px', marginBottom: 10,
+  },
+  labelGrid: {
+    display: 'grid',
+    gridTemplateColumns: '28px 1fr 120px 120px 120px 80px 28px',
+    gap: 8, alignItems: 'center',
+  },
+  labelInput: {
+    padding: '6px 10px', background: '#131b27', border: '1px solid #1e2a3a',
+    borderRadius: 6, color: '#e2e8f0', fontSize: 13, outline: 'none', width: '100%',
+  },
+  freqSelect: {
+    padding: '6px 8px', background: '#131b27', border: '1px solid #1e2a3a',
+    borderRadius: 6, color: '#e2e8f0', fontSize: 12, outline: 'none', width: '100%',
+  },
+  smallBtn: (variant) => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '5px 10px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12,
+    background: variant === 'danger' ? '#450a0a' : variant === 'save' ? '#14532d' : '#1e2a3a',
+    color: variant === 'danger' ? '#f87171' : variant === 'save' ? '#4ade80' : '#94a3b8',
+  }),
+  addBtn: {
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '7px 14px', background: 'transparent',
+    border: '1px dashed #334155', borderRadius: 6, color: '#64748b',
+    fontSize: 12, cursor: 'pointer', marginTop: 4,
+  },
+  catRow: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    background: '#0d1117', border: '1px solid #1e2a3a',
+    borderRadius: 8, padding: '10px 14px', marginBottom: 8,
+  },
 }
 
-export default function Settings({ systemStatus }) {
+function PriorityLabelEditor({ labels, onChange }) {
+  const update = (id, field, value) => {
+    onChange(labels.map(l => l.id === id ? { ...l, [field]: value } : l))
+  }
+
+  const save = async (lbl) => {
+    if (lbl._new) {
+      const { _new, id, ...data } = lbl
+      const created = await api.createPriorityLabel(data)
+      onChange(labels.map(l => l.id === id ? created : l))
+    } else {
+      await api.updatePriorityLabel(lbl.id, {
+        name: lbl.name, color: lbl.color,
+        crawl_frequency: lbl.crawl_frequency,
+        news_frequency: lbl.news_frequency,
+        homepage_frequency: lbl.homepage_frequency,
+        slack_notifications: lbl.slack_notifications,
+      })
+    }
+  }
+
+  const del = async (lbl) => {
+    if (!window.confirm(`Label "${lbl.name}" wirklich löschen?`)) return
+    if (!lbl._new) await api.deletePriorityLabel(lbl.id)
+    onChange(labels.filter(l => l.id !== lbl.id))
+  }
+
+  const addNew = () => {
+    const tempId = `_new_${Date.now()}`
+    onChange([...labels, {
+      id: tempId, _new: true, name: 'Neues Label', color: '#64748b',
+      crawl_frequency: 'weekly', news_frequency: 'weekly',
+      homepage_frequency: 'weekly', slack_notifications: true,
+    }])
+  }
+
+  return (
+    <div>
+      {labels.map(lbl => (
+        <div key={lbl.id} style={s.labelRow}>
+          <div style={{ ...s.labelGrid, gridTemplateColumns: '28px 1fr 28px 120px 120px 120px 80px 80px 28px' }}>
+            <input
+              type="color" value={lbl.color}
+              onChange={e => update(lbl.id, 'color', e.target.value)}
+              style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+            />
+            <input
+              style={s.labelInput} value={lbl.name}
+              onChange={e => update(lbl.id, 'name', e.target.value)}
+            />
+            <span style={{ fontSize: 10, color: '#475569', whiteSpace: 'nowrap' }}>Crawl</span>
+            <select style={s.freqSelect} value={lbl.crawl_frequency}
+              onChange={e => update(lbl.id, 'crawl_frequency', e.target.value)}>
+              {FREQ_OPTIONS_NO_NEVER.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <select style={s.freqSelect} value={lbl.news_frequency}
+              onChange={e => update(lbl.id, 'news_frequency', e.target.value)}>
+              {FREQ_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} (News)</option>)}
+            </select>
+            <select style={s.freqSelect} value={lbl.homepage_frequency}
+              onChange={e => update(lbl.id, 'homepage_frequency', e.target.value)}>
+              {FREQ_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label} (HP)</option>)}
+            </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#94a3b8', cursor: 'pointer' }}>
+              <input type="checkbox" checked={lbl.slack_notifications}
+                onChange={e => update(lbl.id, 'slack_notifications', e.target.checked)} />
+              Slack
+            </label>
+            <button style={s.smallBtn('save')} onClick={() => save(lbl)}>
+              <Save size={12} />
+            </button>
+            <button style={s.smallBtn('danger')} onClick={() => del(lbl)}>
+              <Trash2 size={12} />
+            </button>
+          </div>
+        </div>
+      ))}
+      <button style={s.addBtn} onClick={addNew}>
+        <Plus size={12} /> Neues Label
+      </button>
+    </div>
+  )
+}
+
+function CategoryLabelEditor({ labels, onChange }) {
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState('#64748b')
+
+  const updateName = async (lbl, name) => {
+    await api.updateCategoryLabel(lbl.id, { name })
+    onChange(labels.map(l => l.id === lbl.id ? { ...l, name } : l))
+  }
+
+  const updateColor = async (lbl, color) => {
+    await api.updateCategoryLabel(lbl.id, { color })
+    onChange(labels.map(l => l.id === lbl.id ? { ...l, color } : l))
+  }
+
+  const del = async (lbl) => {
+    if (!window.confirm(`Kategorie "${lbl.name}" wirklich löschen?`)) return
+    await api.deleteCategoryLabel(lbl.id)
+    onChange(labels.filter(l => l.id !== lbl.id))
+  }
+
+  const add = async () => {
+    if (!newName.trim()) return
+    const created = await api.createCategoryLabel({ name: newName.trim(), color: newColor })
+    onChange([...labels, created])
+    setNewName('')
+    setNewColor('#64748b')
+  }
+
+  return (
+    <div>
+      {labels.map(lbl => (
+        <EditableCategoryRow key={lbl.id} lbl={lbl} onSaveName={updateName} onSaveColor={updateColor} onDelete={del} />
+      ))}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+        <input
+          type="color" value={newColor} onChange={e => setNewColor(e.target.value)}
+          style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+        />
+        <input
+          style={{ ...s.labelInput, flex: 1, maxWidth: 220 }}
+          value={newName} onChange={e => setNewName(e.target.value)}
+          placeholder="Neue Kategorie…"
+          onKeyDown={e => e.key === 'Enter' && add()}
+        />
+        <button style={{ ...s.smallBtn('save'), padding: '6px 14px' }} onClick={add}>
+          <Plus size={12} /> Hinzufügen
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function EditableCategoryRow({ lbl, onSaveName, onSaveColor, onDelete }) {
+  const [name, setName] = useState(lbl.name)
+
+  return (
+    <div style={s.catRow}>
+      <input
+        type="color" value={lbl.color}
+        onChange={e => onSaveColor(lbl, e.target.value)}
+        style={{ width: 28, height: 28, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+      />
+      <input
+        style={{ ...s.labelInput, flex: 1 }}
+        value={name}
+        onChange={e => setName(e.target.value)}
+        onBlur={() => name !== lbl.name && onSaveName(lbl, name)}
+        onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+      />
+      <button style={s.smallBtn('danger')} onClick={() => onDelete(lbl)}>
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+}
+
+export default function Settings({ systemStatus, priorityLabels, categoryLabels, onLabelsChanged }) {
   const [form, setForm] = useState({
     openai_api_key: '',
     slack_webhook_url: '',
@@ -44,6 +249,13 @@ export default function Settings({ systemStatus }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Local copies for optimistic UI; parent reloads from server on change
+  const [localPriority, setLocalPriority] = useState(priorityLabels || [])
+  const [localCategory, setLocalCategory] = useState(categoryLabels || [])
+
+  useEffect(() => { setLocalPriority(priorityLabels || []) }, [priorityLabels])
+  useEffect(() => { setLocalCategory(categoryLabels || []) }, [categoryLabels])
 
   useEffect(() => {
     api.getConfig().then(cfg => {
@@ -74,10 +286,20 @@ export default function Settings({ systemStatus }) {
 
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
+  const handlePriorityChange = (updated) => {
+    setLocalPriority(updated)
+    onLabelsChanged && onLabelsChanged()
+  }
+
+  const handleCategoryChange = (updated) => {
+    setLocalCategory(updated)
+    onLabelsChanged && onLabelsChanged()
+  }
+
   return (
     <div style={s.page}>
       <div style={s.title}>Settings</div>
-      <div style={s.subtitle}>Configure API keys, Slack integration, and scan behavior.</div>
+      <div style={s.subtitle}>Configure API keys, Slack integration, scan behavior, and labels.</div>
 
       <div style={s.section}>
         <div style={s.sectionTitle}>API Keys</div>
@@ -118,7 +340,7 @@ export default function Settings({ systemStatus }) {
             value={form.scan_frequency_hours}
             onChange={set('scan_frequency_hours')}
           />
-          <div style={s.hint}>How often to automatically scan all competitors</div>
+          <div style={s.hint}>Scheduler interval — per-label frequency further controls which competitors run each cycle</div>
         </div>
         <div style={s.field}>
           <label style={s.label}>Max Pages per Site</label>
@@ -128,7 +350,7 @@ export default function Settings({ systemStatus }) {
             value={form.max_pages_per_site}
             onChange={set('max_pages_per_site')}
           />
-          <div style={s.hint}>Maximum pages to scrape per competitor website</div>
+          <div style={s.hint}>Default maximum pages to scrape per competitor (overridable per competitor)</div>
         </div>
         <div style={s.field}>
           <label style={s.label}>News Lookback (days)</label>
@@ -151,8 +373,30 @@ export default function Settings({ systemStatus }) {
         {saved ? <><CheckCircle size={14} /> Saved</> : <><Save size={14} /> Save Settings</>}
       </button>
 
+      {/* Priority Labels */}
+      <div style={{ ...s.section, marginTop: 40 }}>
+        <div style={s.sectionTitle}>Prioritäts-Labels</div>
+        <div style={{ fontSize: 12, color: '#475569', marginBottom: 14 }}>
+          Jeder Wettbewerber erhält genau ein Prioritäts-Label. Das Label steuert Crawl-Frequenz und Slack-Benachrichtigungen.
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 680 }}>
+            <PriorityLabelEditor labels={localPriority} onChange={handlePriorityChange} />
+          </div>
+        </div>
+      </div>
+
+      {/* Category Labels */}
+      <div style={{ ...s.section, marginTop: 8 }}>
+        <div style={s.sectionTitle}>Kategorien</div>
+        <div style={{ fontSize: 12, color: '#475569', marginBottom: 14 }}>
+          Kategorien dienen der Gruppierung und Filterung. Mehrfachzuweisung pro Wettbewerber möglich.
+        </div>
+        <CategoryLabelEditor labels={localCategory} onChange={handleCategoryChange} />
+      </div>
+
       {systemStatus && (
-        <div style={{ ...s.section, marginTop: 40 }}>
+        <div style={{ ...s.section, marginTop: 8 }}>
           <div style={s.sectionTitle}>System Status</div>
           <div style={s.statusGrid}>
             <div style={s.statusCard}>

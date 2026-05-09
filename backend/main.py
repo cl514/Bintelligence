@@ -1,4 +1,5 @@
 import asyncio
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -42,6 +43,10 @@ class CompetitorUpdate(BaseModel):
     name: Optional[str] = None
     website: Optional[str] = None
     active: Optional[bool] = None
+    priority_label_id: Optional[str] = None
+    category_label_ids: Optional[list[str]] = None
+    max_pages_sitemap: Optional[int] = None
+    relevant_topics: Optional[str] = None
 
 
 class ConfigUpdate(BaseModel):
@@ -50,6 +55,34 @@ class ConfigUpdate(BaseModel):
     scan_frequency_hours: Optional[int] = None
     max_pages_per_site: Optional[int] = None
     news_lookback_days: Optional[int] = None
+
+
+class PriorityLabel(BaseModel):
+    name: str
+    color: str = "#64748b"
+    crawl_frequency: str = "weekly"
+    news_frequency: str = "weekly"
+    homepage_frequency: str = "weekly"
+    slack_notifications: bool = True
+
+
+class PriorityLabelUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    crawl_frequency: Optional[str] = None
+    news_frequency: Optional[str] = None
+    homepage_frequency: Optional[str] = None
+    slack_notifications: Optional[bool] = None
+
+
+class CategoryLabel(BaseModel):
+    name: str
+    color: str = "#64748b"
+
+
+class CategoryLabelUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
 
 
 # ── Startup / Shutdown ──────────────────────────────────────────────────────
@@ -78,12 +111,16 @@ def _reschedule():
     )
 
 
+def _slug(name: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return f"{base}-{str(uuid.uuid4())[:4]}"
+
+
 # ── Config endpoints ─────────────────────────────────────────────────────────
 
 @app.get("/api/config")
 def get_config():
     config = load_config()
-    # Mask API key
     safe = dict(config)
     if safe.get("openai_api_key"):
         safe["openai_api_key"] = "***" + safe["openai_api_key"][-4:]
@@ -94,7 +131,6 @@ def get_config():
 def update_config(updates: ConfigUpdate):
     config = load_config()
     data = updates.model_dump(exclude_none=True)
-    # Don't overwrite masked key
     if data.get("openai_api_key", "").startswith("***"):
         data.pop("openai_api_key")
     config.update(data)
@@ -114,7 +150,14 @@ def list_competitors():
 def add_competitor(competitor: Competitor):
     config = load_config()
     new_id = str(uuid.uuid4())[:8]
-    entry = {"id": new_id, **competitor.model_dump()}
+    entry = {
+        "id": new_id,
+        "priority_label_id": None,
+        "category_label_ids": [],
+        "max_pages_sitemap": None,
+        "relevant_topics": "",
+        **competitor.model_dump(),
+    }
     config.setdefault("competitors", []).append(entry)
     save_config(config)
     return entry
@@ -139,6 +182,94 @@ def delete_competitor(competitor_id: str):
     config["competitors"] = [c for c in config.get("competitors", []) if c["id"] != competitor_id]
     if len(config["competitors"]) == before:
         raise HTTPException(404, "Competitor not found")
+    save_config(config)
+    return {"status": "deleted"}
+
+
+# ── Priority label endpoints ──────────────────────────────────────────────────
+
+@app.get("/api/labels/priority")
+def list_priority_labels():
+    return load_config().get("priority_labels", [])
+
+
+@app.post("/api/labels/priority")
+def create_priority_label(label: PriorityLabel):
+    config = load_config()
+    new_id = _slug(label.name)
+    entry = {"id": new_id, **label.model_dump()}
+    config.setdefault("priority_labels", []).append(entry)
+    save_config(config)
+    return entry
+
+
+@app.put("/api/labels/priority/{label_id}")
+def update_priority_label(label_id: str, updates: PriorityLabelUpdate):
+    config = load_config()
+    for lbl in config.get("priority_labels", []):
+        if lbl["id"] == label_id:
+            for k, v in updates.model_dump(exclude_none=True).items():
+                lbl[k] = v
+            save_config(config)
+            return lbl
+    raise HTTPException(404, "Priority label not found")
+
+
+@app.delete("/api/labels/priority/{label_id}")
+def delete_priority_label(label_id: str):
+    config = load_config()
+    before = len(config.get("priority_labels", []))
+    config["priority_labels"] = [l for l in config.get("priority_labels", []) if l["id"] != label_id]
+    if len(config["priority_labels"]) == before:
+        raise HTTPException(404, "Priority label not found")
+    # Null out any competitor references
+    for comp in config.get("competitors", []):
+        if comp.get("priority_label_id") == label_id:
+            comp["priority_label_id"] = None
+    save_config(config)
+    return {"status": "deleted"}
+
+
+# ── Category label endpoints ──────────────────────────────────────────────────
+
+@app.get("/api/labels/category")
+def list_category_labels():
+    return load_config().get("category_labels", [])
+
+
+@app.post("/api/labels/category")
+def create_category_label(label: CategoryLabel):
+    config = load_config()
+    new_id = _slug(label.name)
+    entry = {"id": new_id, **label.model_dump()}
+    config.setdefault("category_labels", []).append(entry)
+    save_config(config)
+    return entry
+
+
+@app.put("/api/labels/category/{label_id}")
+def update_category_label(label_id: str, updates: CategoryLabelUpdate):
+    config = load_config()
+    for lbl in config.get("category_labels", []):
+        if lbl["id"] == label_id:
+            for k, v in updates.model_dump(exclude_none=True).items():
+                lbl[k] = v
+            save_config(config)
+            return lbl
+    raise HTTPException(404, "Category label not found")
+
+
+@app.delete("/api/labels/category/{label_id}")
+def delete_category_label(label_id: str):
+    config = load_config()
+    before = len(config.get("category_labels", []))
+    config["category_labels"] = [l for l in config.get("category_labels", []) if l["id"] != label_id]
+    if len(config["category_labels"]) == before:
+        raise HTTPException(404, "Category label not found")
+    # Remove from all competitor category_label_ids arrays
+    for comp in config.get("competitors", []):
+        if label_id in comp.get("category_label_ids", []):
+            comp["category_label_ids"] = [i for i in comp["category_label_ids"] if i != label_id]
     save_config(config)
     return {"status": "deleted"}
 
@@ -210,6 +341,8 @@ async def crawl_sitemap(competitor_id: str, background_tasks: BackgroundTasks):
     if not competitor:
         raise HTTPException(404, "Competitor not found")
 
+    max_pages = competitor.get("max_pages_sitemap") or config.get("max_pages_per_site", 10)
+
     job_id = str(uuid.uuid4())[:8]
     running_jobs[job_id] = "running"
 
@@ -220,6 +353,7 @@ async def crawl_sitemap(competitor_id: str, background_tasks: BackgroundTasks):
                 competitor["website"],
                 config.get("openai_api_key", ""),
                 config.get("slack_webhook_url", ""),
+                max_pages=max_pages,
             )
             running_jobs[job_id] = "done"
         except Exception as e:

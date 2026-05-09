@@ -1,4 +1,4 @@
-import { Building2, Settings, LayoutDashboard, Plus, Circle } from 'lucide-react'
+import { Building2, Settings, LayoutDashboard, Plus } from 'lucide-react'
 
 const styles = {
   sidebar: {
@@ -48,14 +48,6 @@ const styles = {
     textAlign: 'left',
     borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
   }),
-  dot: (status) => ({
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    background: status === 'success' ? '#22c55e' : status === 'error' ? '#ef4444' : '#64748b',
-    flexShrink: 0,
-    marginLeft: 'auto',
-  }),
   footer: {
     marginTop: 'auto',
     borderTop: '1px solid #1e2a3a',
@@ -76,10 +68,13 @@ const styles = {
   },
 }
 
-export default function Sidebar({ competitors, results, activeView, onNavigate, onAddCompetitor }) {
-  const getStatus = (id) => {
-    const r = results[id]
-    return r?.status || null
+export default function Sidebar({ competitors, results, priorityLabels = [], activeView, onNavigate, onAddCompetitor }) {
+  const getStatus = (id) => results[id]?.status || null
+
+  const getPriorityColor = (comp) => {
+    if (!comp.priority_label_id) return null
+    const label = priorityLabels.find(l => l.id === comp.priority_label_id)
+    return label?.color || null
   }
 
   return (
@@ -103,19 +98,39 @@ export default function Sidebar({ competitors, results, activeView, onNavigate, 
 
       <div style={{ ...styles.section, flex: 1, overflowY: 'auto' }}>
         <div style={styles.sectionLabel}>Competitors</div>
-        {competitors.map((c) => (
-          <button
-            key={c.id}
-            style={styles.navItem(activeView === `competitor:${c.id}`)}
-            onClick={() => onNavigate(`competitor:${c.id}`)}
-          >
-            <Building2 size={14} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {c.name}
-            </span>
-            <span style={styles.dot(getStatus(c.id))} />
-          </button>
-        ))}
+        {competitors.map((c) => {
+          const priorityColor = getPriorityColor(c)
+          const scanStatus = getStatus(c.id)
+          const inactive = c.active === false
+          return (
+            <button
+              key={c.id}
+              style={{
+                ...styles.navItem(activeView === `competitor:${c.id}`),
+                opacity: inactive ? 0.5 : 1,
+              }}
+              onClick={() => onNavigate(`competitor:${c.id}`)}
+            >
+              <Building2 size={14} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {c.name}
+              </span>
+              {/* Priority label color dot */}
+              {priorityColor && (
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: priorityColor, flexShrink: 0, marginLeft: 4,
+                }} />
+              )}
+              {/* Scan status dot */}
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                background: scanStatus === 'success' ? '#22c55e' : scanStatus === 'error' ? '#ef4444' : '#64748b',
+                marginLeft: priorityColor ? 3 : 'auto',
+              }} />
+            </button>
+          )
+        })}
       </div>
 
       <div style={styles.footer}>
