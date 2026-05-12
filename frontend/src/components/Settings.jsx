@@ -245,6 +245,7 @@ export default function Settings({ systemStatus, priorityLabels, categoryLabels,
     scan_frequency_hours: 24,
     max_pages_per_site: 5,
     news_lookback_days: 7,
+    llm_system_prompt: '',
   })
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -268,13 +269,27 @@ export default function Settings({ systemStatus, priorityLabels, categoryLabels,
         news_lookback_days: cfg.news_lookback_days || 7,
       }))
     })
+
+    api.getComplianceSettings().then(settings => {
+      setForm(f => ({ ...f, llm_system_prompt: settings.llm_system_prompt || '' }))
+    }).catch(() => {
+      // ignore; compliance settings may not exist yet
+    })
   }, [])
 
   const handleSave = async () => {
     setLoading(true)
     setError('')
     try {
-      await api.updateConfig(form)
+      const configPayload = {
+        openai_api_key: form.openai_api_key,
+        slack_webhook_url: form.slack_webhook_url,
+        scan_frequency_hours: form.scan_frequency_hours,
+        max_pages_per_site: form.max_pages_per_site,
+        news_lookback_days: form.news_lookback_days,
+      }
+      await api.updateConfig(configPayload)
+      await api.updateComplianceSettings({ llm_system_prompt: form.llm_system_prompt })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
@@ -361,6 +376,22 @@ export default function Settings({ systemStatus, priorityLabels, categoryLabels,
             onChange={set('news_lookback_days')}
           />
           <div style={s.hint}>How many days back to search for news articles</div>
+        </div>
+      </div>
+
+      <div style={s.section}>
+        <div style={s.sectionTitle}>Compliance Prompt</div>
+        <div style={s.field}>
+          <label style={s.label}>LLM System Prompt</label>
+          <textarea
+            style={{ ...s.input, minHeight: 220, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}
+            value={form.llm_system_prompt}
+            onChange={set('llm_system_prompt')}
+            placeholder="Gib hier deinen Compliance-System-Prompt ein..."
+          />
+          <div style={s.hint}>
+            Der Prompt wird für die Compliance-Analyse verwendet. Unterstützte Platzhalter: <code>{'{url}'}</code>, <code>{'{site_text}'}</code>.
+          </div>
         </div>
       </div>
 

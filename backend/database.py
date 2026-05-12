@@ -10,6 +10,7 @@ DB_PATH.mkdir(exist_ok=True)
 SCANS_FILE = DB_PATH / "scans.json"
 SNAPSHOTS_FILE = DB_PATH / "snapshots.json"
 SITEMAPS_FILE = DB_PATH / "sitemaps.json"
+COMPLIANCE_SCANS_FILE = DB_PATH / "compliance_scans.json"
 
 
 def _load(path: Path) -> dict:
@@ -63,6 +64,30 @@ def save_snapshot(competitor_id: str, url: str, content_hash: str, text_content:
 def get_snapshot(competitor_id: str, url: str) -> Optional[dict]:
     snapshots = _load(SNAPSHOTS_FILE)
     return snapshots.get(f"{competitor_id}:{url}")
+
+
+def save_compliance_scan(brand_id: str, scan: dict) -> None:
+    scans = _load(COMPLIANCE_SCANS_FILE)
+    if brand_id not in scans:
+        scans[brand_id] = {"history": []}
+
+    scan_entry = {**scan, "timestamp": scan.get("timestamp") or datetime.utcnow().isoformat()}
+    scans[brand_id]["history"].insert(0, scan_entry)
+    scans[brand_id]["history"] = scans[brand_id]["history"][:50]
+    scans[brand_id]["latest"] = scan_entry
+    _save(COMPLIANCE_SCANS_FILE, scans)
+
+
+def get_latest_compliance_scan(brand_id: str) -> Optional[dict]:
+    scans = _load(COMPLIANCE_SCANS_FILE)
+    brand_scans = scans.get(brand_id, {})
+    return brand_scans.get("latest")
+
+
+def get_compliance_scan_history(brand_id: str, limit: int = 20) -> list:
+    scans = _load(COMPLIANCE_SCANS_FILE)
+    brand_scans = scans.get(brand_id, {})
+    return brand_scans.get("history", [])[:limit]
 
 
 # ── Sitemap storage ───────────────────────────────────────────────────────────

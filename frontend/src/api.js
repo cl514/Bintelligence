@@ -26,6 +26,9 @@ export const api = {
 
   getConfig: () => req('GET', '/config'),
   updateConfig: (data) => req('PUT', '/config', data),
+  getComplianceSettings: () => req('GET', '/compliance/settings'),
+  updateComplianceSettings: (data) => req('PUT', '/compliance/settings', data),
+  getComplianceBrands: () => req('GET', '/compliance/brands'),
   getStatus: () => req('GET', '/status'),
 
   crawlSitemap: (id) => req('POST', `/sitemap/crawl/${id}`),

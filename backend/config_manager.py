@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+COMPLIANCE_SETTINGS_PATH = Path(__file__).parent.parent / "data" / "compliance_settings.json"
 
 DEFAULTS = {
     "competitors": [],
@@ -34,6 +35,7 @@ DEFAULTS = {
         {"id": "tax-advisor", "name": "Tax Advisor", "color": "#6366f1"},
         {"id": "accounting-tech", "name": "Accounting-Tech", "color": "#0ea5e9"},
     ],
+    "compliance_brands": [],
 }
 
 
@@ -55,8 +57,41 @@ def load_config() -> dict:
         config["priority_labels"] = list(DEFAULTS["priority_labels"])
     if "category_labels" not in config:
         config["category_labels"] = list(DEFAULTS["category_labels"])
+    if "compliance_brands" not in config:
+        config["compliance_brands"] = list(DEFAULTS["compliance_brands"])
 
     return config
+
+COMPLIANCE_DEFAULTS = {
+    "llm_system_prompt": (
+        "Du bist ein Compliance-Analyst für deutsche Steuerberater-Websites. "
+        "Prüfe den folgenden Seiteninhalt auf Verstöße gegen §6 Nr. 4 StBerG. "
+        "Antworte ausschließlich mit einem validen JSON-Objekt mit den Feldern:\n"
+        "  rating: \"GRÜN\" | \"GELB\" | \"ROT\"\n"
+        "  findings: Liste der gefundenen Fundstellen\n"
+        "  suggestions: Liste praktischer Korrekturvorschläge\n\n"
+        "URL: {url}\n"
+        "Seiteninhalt: {site_text}\n"
+        "Bewerte nur das rechtliche Risiko. Gib konkrete Hinweise zu Pflichtangaben, irreführenden Formulierungen und fehlender Transparenz."
+    )
+}
+
+
+def load_compliance_settings() -> dict:
+    if COMPLIANCE_SETTINGS_PATH.exists():
+        with open(COMPLIANCE_SETTINGS_PATH, "r", encoding="utf-8") as f:
+            settings = json.load(f)
+    else:
+        settings = {}
+    result = dict(COMPLIANCE_DEFAULTS)
+    result.update(settings)
+    return result
+
+
+def save_compliance_settings(settings: dict) -> None:
+    COMPLIANCE_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(COMPLIANCE_SETTINGS_PATH, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
 
 
 def save_config(config: dict) -> None:

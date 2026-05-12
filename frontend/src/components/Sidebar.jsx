@@ -94,6 +94,10 @@ export default function Sidebar({ competitors, results, priorityLabels = [], act
           <Megaphone size={14} />
           Ad Intelligence
         </button>
+        <button style={styles.navItem(activeView === 'compliance')} onClick={() => onNavigate('compliance')}>
+          <Circle size={14} />
+          Compliance
+        </button>
         <button style={styles.navItem(activeView === 'settings')} onClick={() => onNavigate('settings')}>
           <Settings size={14} />
           Settings

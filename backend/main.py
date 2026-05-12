@@ -14,6 +14,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from ads import router as ads_router
+from compliance_routes import router as compliance_router
 from config_manager import load_config, save_config
 from database import get_scan_results, get_latest_scan, get_all_latest_scans, get_sitemap_pages_list
 from research_runner import run_all_competitors, run_competitor_research
@@ -24,11 +25,12 @@ app = FastAPI(title="Competitive Intelligence API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
 )
 
 app.include_router(ads_router)
+app.include_router(compliance_router)
 
 UPLOADS_DIR = Path(__file__).parent.parent / "data" / "ad_screenshots"
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
